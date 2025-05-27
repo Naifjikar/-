@@ -1,16 +1,11 @@
 import logging
-import requests
 import yfinance as yf
 from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, CommandHandler, filters
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-# إعداد اللوغ
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-
-API_KEY = "PDTlX9ib5N6laEnauklHAgoN8UGr12uh"
+# إعداد البوت - ضع التوكن الخاص بك هنا
+TOKEN = "YOUR_BOT_TOKEN"
+logging.basicConfig(level=logging.INFO)
 
 # ترجمة القطاعات
 sector_translation = {
@@ -18,7 +13,7 @@ sector_translation = {
     "Healthcare": "الرعاية الصحية",
     "Financial Services": "الخدمات المالية",
     "Consumer Cyclical": "السلع الاستهلاكية الدورية",
-    "Communication Services": "خدمات الاتصالات",
+    "Communication Services": "الاتصالات",
     "Energy": "الطاقة",
     "Industrials": "الصناعات",
     "Real Estate": "العقارات",
@@ -31,67 +26,19 @@ sector_translation = {
     "Telecom": "الاتصالات",
 }
 
-# الفلترة الشرعية
-def filter_sharia_compliance(symbol):
+# دالة الفلترة عبر yfinance
+def check_sharia_yahoo(symbol):
     try:
-        # 1. المحاولة عبر FMP
-        profile_url = f"https://financialmodelingprep.com/api/v3/profile/{symbol}?apikey={API_KEY}"
-        balance_url = f"https://financialmodelingprep.com/api/v3/balance-sheet-statement/{symbol}?limit=1&apikey={API_KEY}"
-
-        profile = requests.get(profile_url).json()
-        balance = requests.get(balance_url).json()
-
-        if profile and balance:
-            sector_en = profile[0].get("sector", "غير متوفر")
-            sector_ar = sector_translation.get(sector_en, sector_en)
-            company_name = profile[0].get("companyName", symbol)
-
-            total_debt = balance[0].get("totalDebt", 0)
-            total_assets = balance[0].get("totalAssets", 0)
-
-            if not total_assets:
-                raise Exception("No asset data")
-
-            debt_ratio = (total_debt / total_assets) * 100
-            haram_keywords = ["bank", "insurance", "alcohol", "gambling", "tobacco", "loan"]
-
-            if any(haram in sector_en.lower() for haram in haram_keywords):
-                verdict = "❌ السهم غير شرعي (نشاط محرم)"
-                purification = "نسبة التطهير: 100%"
-            elif debt_ratio > 30:
-                verdict = "❌ السهم غير شرعي (نسبة الدين > 30%)"
-                purification = "نسبة التطهير: 100%"
-            else:
-                verdict = "✅ السهم حلال حسب المعايير الشرعية"
-                purification = "نسبة التطهير التقديرية: أقل من 5%"
-
-            return f"""{verdict}
-- الشركة: {company_name}
-- النشاط: {sector_ar}
-- نسبة الدين: {round(debt_ratio, 2)}%
-- {purification}
-
-قناة JALWE العامة للأسهم:
-https://t.me/JalweTrader
-
-قناة JALWE العامة للعقود:
-https://t.me/jalweoption
-
-قناة JALWE التعليمية:
-https://t.me/JalweVip
-
-للاشتراك بالقنوات الخاصة:
-https://salla.sa/jalawe/category/AXlzxy
-"""
-
-        # 2. إذا فشل FMP → جلب البيانات من Yahoo
         stock = yf.Ticker(symbol)
         info = stock.info
 
         sector_en = info.get("sector", "غير متوفر")
         sector_ar = sector_translation.get(sector_en, sector_en)
         company_name = info.get("shortName", symbol)
-        debt_to_equity = info.get("debtToEquity", 0)
+        debt_to_equity = info.get("debtToEquity", None)
+
+        if sector_en == "غير متوفر" or debt_to_equity is None:
+            return "⚠️ تعذر الحصول على البيانات الكافية للسهم، تأكد من الرمز أو جرب لاحقًا."
 
         haram_keywords = ["bank", "insurance", "alcohol", "gambling", "tobacco", "loan"]
         if any(haram in sector_en.lower() for haram in haram_keywords):
@@ -101,10 +48,10 @@ https://salla.sa/jalawe/category/AXlzxy
             verdict = "❌ السهم غير شرعي (نسبة الدين مرتفعة)"
             purification = "نسبة التطهير: 100%"
         else:
-            verdict = "✅ السهم حلال (تقديريًا حسب بيانات Yahoo)"
+            verdict = "✅ السهم حلال (حسب بيانات Yahoo)"
             purification = "نسبة التطهير التقديرية: أقل من 5%"
 
-        return f"""{verdict}
+        message = f"""{verdict}
 - الشركة: {company_name}
 - النشاط: {sector_ar}
 - نسبة الدين (تقريبية): {round(debt_to_equity * 100, 2)}%
@@ -120,34 +67,26 @@ https://t.me/jalweoption
 https://t.me/JalweVip
 
 للاشتراك بالقنوات الخاصة:
-https://salla.sa/jalawe/category/AXlzxy
-"""
+https://salla.sa/jalawe/category/AXlzxy"""
+        return message
 
     except Exception as e:
-        return f"⚠️ تعذر جلب البيانات أو السهم غير مدعوم: {e}"
+        return f"⚠️ حدث خطأ أثناء جلب البيانات من Yahoo Finance: {e}"
 
-# أمر /start
+# أمر البدء
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "مرحبًا بك في بوت فلترة الأسهم الشرعية.\n\n"
-        "أرسل رمز السهم (مثل AAPL أو TSLA) وسنخبرك عن حالته الشرعية بدقة.\n\n"
-        "قناة JALWE العامة للأسهم:\nhttps://t.me/JalweTrader\n"
-        "قناة JALWE العامة للعقود:\nhttps://t.me/jalweoption\n"
-        "قناة JALWE التعليمية:\nhttps://t.me/JalweVip\n"
-        "للاشتراك بالقنوات الخاصة:\nhttps://salla.sa/jalawe/category/AXlzxy"
-    )
+    await update.message.reply_text("أرسل رمز السهم (مثال: AAPL) لمعرفة حالته الشرعية (باستخدام Yahoo Finance فقط).")
 
-# استقبال الرسائل
+# التعامل مع الرسائل
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     symbol = update.message.text.upper()
     if len(symbol) <= 6:
-        result = filter_sharia_compliance(symbol)
+        result = check_sharia_yahoo(symbol)
         await update.message.reply_text(result)
     else:
-        await update.message.reply_text("أرسل رمز السهم فقط (مثال: AAPL، TSLA).")
+        await update.message.reply_text("أرسل رمز السهم فقط (مثل AAPL أو TSLA).")
 
 # تشغيل البوت
-TOKEN = "7643817024:AAEdh2RK0iDgAYQgA5qOq3VGvDa66GMFgQk"
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
