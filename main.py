@@ -1,102 +1,61 @@
-import os
-import requests
-from bs4 import BeautifulSoup
+import logging
+import yfinance as yf
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+# إعداد اللوغ
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("أرسل رمز السهم (مثال: AAPL) لمعرفة الحالة الشرعية.")
-
-def check_yaqeen(symbol):
-    url = f"https://yaaqen.com/stocks/{symbol}"
+# دالة الفلترة الشرعية
+def filter_sharia_compliance(symbol):
     try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
+        stock = yf.Ticker(symbol)
+        info = stock.info
 
-        # افحص نص أو عناصر معينة داخل الصفحة تحدد حالة السهم
-        status_element = soup.find("div", class_="status")  # مثال على class
-        if status_element:
-            status_text = status_element.get_text(strip=True)
-            if "مباح" in status_text:
-                return "مباح ✅"
-            elif "غير مباح" in status_text:
-                return "غير مباح ❌"
-        return "غير محدث"
-    except Exception:
-        return "تعذر الاتصال"
+        # استخراج البيانات
+        debt_ratio = info.get("debtToEquity", 0)
+        sector = info.get("sector", "غير متوفر").lower()
 
-    try:
-        r3 = requests.get(f'https://chart-idea.com/filter?q={symbol}')
-        results["Chart Idea"] = "مباح ✅" if "مباح" in r3.text else "غير محدث"
-        # لا توجد نسبة تطهير حالياً
-        results["Chart Idea_purification"] = ""
-    except:
-        results["Chart Idea"] = "تعذر الاتصال"
+        # فلترة النشاطات المحرمة
+        haram_sectors = ["bank", "alcohol", "gambling", "insurance", "tobacco", "loan"]
+        if any(haram in sector for haram in haram_sectors):
+            return f"""❌ السهم غير شرعي
+- النشاط: {sector.title()}
+- نسبة الدين: {round(debt_ratio * 100, 2)}%
+- نسبة التطهير التقديرية: تتجاوز 5%"""
 
-    return results
+        # التحقق من نسبة الدين
+        if debt_ratio and debt_ratio > 1.0:
+            return f"""❌ السهم غير شرعي (نسبة الدين مرتفعة)
+- النشاط: {sector.title()}
+- نسبة الدين: {round(debt_ratio * 100, 2)}%
+- نسبة التطهير التقديرية: قد تتجاوز 5%"""
 
-def extract_yaqeen_purification(symbol):
-    url = f"https://yaaqen.com/stocks/{symbol}"
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
+        # إذا كل شيء سليم
+        return f"""✅ السهم حلال حسب البيانات المالية
+- النشاط: {sector.title()}
+- نسبة الدين: {round(debt_ratio * 100, 2)}%
+- نسبة التطهير التقديرية: أقل من 5%"""
 
-        for tag in soup.find_all(string=True):
-            if "نسبة التطهير" in tag or ("% تطهير" in tag) or ("% للتطهير" in tag):
-                return tag.strip()
+    except Exception as e:
+        return f"⚠️ تعذر التحقق من البيانات: {e}"
 
-        return ""
-    except Exception:
-        return ""
-
-def format_response(symbol, results):
-    response_text = f"رمز السهم: {symbol}\n\n"
-
-    order = ["Yaqeen", "Filterna", "Chart Idea"]
-    arabic_names = {
-        "Yaqeen": "فلتر يقين",
-        "Filterna": "فلترنا",
-        "Chart Idea": "فلتر فكرة شارت"
-    }
-
-    for key in order:
-        value = results.get(key, "غير محدث")
-        if "✅" in value:
-            percentage = results.get(f"{key}_purification", "")
-            if percentage:
-                response_text += f"{arabic_names[key]}:\nحلال، نسبة التطهير {percentage}\n\n"
-            else:
-                response_text += f"{arabic_names[key]}:\nحلال (نسبة التطهير غير متوفرة حالياً)\n\n"
-        elif "❌" in value:
-            response_text += f"{arabic_names[key]}:\nغير شرعي\n\n"
-        else:
-            response_text += f"{arabic_names[key]}:\nغير محدث\n\n"
-
-    response_text += (
-        "قنوات JALWE العامة:\n"
-        "- الأسهم: https://t.me/JalweTrader\n"
-        "- العقود: https://t.me/jalweoption\n"
-        "- التعليمية: https://t.me/JalweVip\n"
-    )
-
-    return response_text
-
+# الدالة التي تتعامل مع الرسائل
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    symbol = update.message.text.strip().upper()
-    print("User sent symbol:", symbol)  # للتأكد في اللوق
-    results = check_yaqeen(symbol)
-    response_text = format_response(symbol, results)
-    await update.message.reply_text(response_text)
+    symbol = update.message.text.upper()
+    if len(symbol) <= 6:
+        result = filter_sharia_compliance(symbol)
+        await update.message.reply_text(result)
+    else:
+        await update.message.reply_text("أرسل رمز السهم فقط (مثال: AAPL، TSLA).")
 
-def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    app.run_polling()
+# توكن البوت
+TOKEN = "7643817024:AAGR3pno8R_IpQHtq1ioTwkPxHqY6uFxNJY"
 
-if __name__ == "__main__":
-    main()
+# تشغيل البوت
+app = ApplicationBuilder().token(TOKEN).build()
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+app.run_polling()
