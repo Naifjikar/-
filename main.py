@@ -4,7 +4,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
 # إعداد البوت - ضع التوكن الخاص بك هنا
-TOKEN = "YOUR_BOT_TOKEN"
+TOKEN = "7643817024:AAEdh2RK0iDgAYQgA5qOq3VGvDa66GMFgQk"
 logging.basicConfig(level=logging.INFO)
 
 # ترجمة القطاعات
