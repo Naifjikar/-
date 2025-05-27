@@ -29,3 +29,5 @@ def format_response(symbol, results):
     )
 
     return response_text
+if __name__ == "__main__":
+    main()
