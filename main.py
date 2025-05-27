@@ -41,7 +41,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     for source, result in results.items():
         response_text += f"- {source}: {result}\n"
-"
 
     response_text += """قنوات JALWE:
 - الأسهم: https://t.me/JalweTrader
