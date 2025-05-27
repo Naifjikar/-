@@ -88,7 +88,7 @@ def format_response(symbol, results):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     symbol = update.message.text.strip().upper()
     print("User sent symbol:", symbol)  # للتأكد في اللوق
-    results = check_sharia_compliance(symbol)
+    results = check_yaqeen(symbol)
     response_text = format_response(symbol, results)
     await update.message.reply_text(response_text)
 
