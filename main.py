@@ -9,41 +9,68 @@ logging.basicConfig(
     level=logging.INFO
 )
 
+# قاموس ترجمة النشاط
+sector_translation = {
+    "technology": "تقنية",
+    "healthcare": "الرعاية الصحية",
+    "financial services": "الخدمات المالية",
+    "consumer cyclical": "السلع الاستهلاكية الدورية",
+    "communication services": "خدمات الاتصالات",
+    "energy": "الطاقة",
+    "industrials": "الصناعات",
+    "real estate": "العقارات",
+    "utilities": "الخدمات العامة",
+    "materials": "المواد الأساسية",
+    "consumer defensive": "السلع الاستهلاكية الدفاعية",
+    "basic materials": "المواد الأساسية",
+    "insurance": "التأمين",
+    "banking": "البنوك",
+    "telecom": "الاتصالات",
+}
+
 # دالة الفلترة الشرعية
 def filter_sharia_compliance(symbol):
     try:
         stock = yf.Ticker(symbol)
         info = stock.info
 
-        # استخراج البيانات
         debt_ratio = info.get("debtToEquity", 0)
-        sector = info.get("sector", "غير متوفر").lower()
+        raw_sector = info.get("sector", "غير متوفر").lower()
+        sector = sector_translation.get(raw_sector, raw_sector)
 
-        # فلترة النشاطات المحرمة
         haram_sectors = ["bank", "alcohol", "gambling", "insurance", "tobacco", "loan"]
-        if any(haram in sector for haram in haram_sectors):
-            return f"""❌ السهم غير شرعي
-- النشاط: {sector.title()}
-- نسبة الدين: {round(debt_ratio * 100, 2)}%
-- نسبة التطهير التقديرية: تتجاوز 5%"""
+        if any(haram in raw_sector for haram in haram_sectors):
+            verdict = "❌ السهم غير شرعي"
+            notes = "نشاط محرم أو مشبوه"
+            purification = "نسبة التطهير: 100%"
 
-        # التحقق من نسبة الدين
-        if debt_ratio and debt_ratio > 1.0:
-            return f"""❌ السهم غير شرعي (نسبة الدين مرتفعة)
-- النشاط: {sector.title()}
-- نسبة الدين: {round(debt_ratio * 100, 2)}%
-- نسبة التطهير التقديرية: قد تتجاوز 5%"""
+        elif debt_ratio and debt_ratio > 1.0:
+            verdict = "❌ السهم غير شرعي"
+            notes = "نسبة الدين مرتفعة"
+            purification = "نسبة التطهير: 100%"
 
-        # إذا كل شيء سليم
-        return f"""✅ السهم حلال حسب البيانات المالية
-- النشاط: {sector.title()}
+        else:
+            verdict = "✅ السهم حلال حسب البيانات المالية"
+            notes = "نشاط نظيف ونسبة الدين مقبولة"
+            purification = "نسبة التطهير التقديرية: أقل من 5%"
+
+        response = f"""{verdict}
+- النشاط: {sector}
 - نسبة الدين: {round(debt_ratio * 100, 2)}%
-- نسبة التطهير التقديرية: أقل من 5%"""
+- {purification}
+- الملاحظة: {notes}
+
+قنوات JALWE العامة:
+- الأسهم: https://t.me/JalweTrader
+- العقود: https://t.me/jalweoption
+- التعليمية: https://t.me/JalweVip
+"""
+        return response
 
     except Exception as e:
         return f"⚠️ تعذر التحقق من البيانات: {e}"
 
-# الدالة التي تتعامل مع الرسائل
+# استقبال الرسائل من المستخدمين
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     symbol = update.message.text.upper()
     if len(symbol) <= 6:
