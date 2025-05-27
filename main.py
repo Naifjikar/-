@@ -1,3 +1,58 @@
+import os
+import requests
+from bs4 import BeautifulSoup
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("أرسل رمز السهم (مثال: AAPL) لمعرفة الحالة الشرعية.")
+
+def check_sharia_compliance(symbol):
+    results = {}
+
+    try:
+        r1 = requests.get(f'https://yaaqen.com/stocks/{symbol}')
+        results["Yaqeen"] = "مباح ✅" if "مباح" in r1.text else "غير محدث"
+        # استخراج نسبة التطهير من موقع يقين (مؤقتة، يمكن تطورها)
+        results["Yaqeen_purification"] = extract_yaqeen_purification(symbol)
+    except:
+        results["Yaqeen"] = "تعذر الاتصال"
+
+    try:
+        r2 = requests.get(f'https://filterna.com/stocks/{symbol}')
+        results["Filterna"] = "مباح ✅" if "مباح" in r2.text else "غير محدث"
+        # لا توجد نسبة تطهير في فلترنا حالياً
+        results["Filterna_purification"] = ""
+    except:
+        results["Filterna"] = "تعذر الاتصال"
+
+    try:
+        r3 = requests.get(f'https://chart-idea.com/filter?q={symbol}')
+        results["Chart Idea"] = "مباح ✅" if "مباح" in r3.text else "غير محدث"
+        # لا توجد نسبة تطهير حالياً
+        results["Chart Idea_purification"] = ""
+    except:
+        results["Chart Idea"] = "تعذر الاتصال"
+
+    return results
+
+def extract_yaqeen_purification(symbol):
+    url = f"https://yaaqen.com/stocks/{symbol}"
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        for tag in soup.find_all(string=True):
+            if "نسبة التطهير" in tag or ("% تطهير" in tag) or ("% للتطهير" in tag):
+                return tag.strip()
+
+        return ""
+    except Exception:
+        return ""
+
 def format_response(symbol, results):
     response_text = f"رمز السهم: {symbol}\n\n"
 
@@ -29,5 +84,19 @@ def format_response(symbol, results):
     )
 
     return response_text
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    symbol = update.message.text.strip().upper()
+    print("User sent symbol:", symbol)  # للتأكد في اللوق
+    results = check_sharia_compliance(symbol)
+    response_text = format_response(symbol, results)
+    await update.message.reply_text(response_text)
+
+def main():
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.run_polling()
+
 if __name__ == "__main__":
     main()
