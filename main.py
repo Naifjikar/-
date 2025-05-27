@@ -1,7 +1,7 @@
 import logging
 import yfinance as yf
 from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
+from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, CommandHandler, filters
 
 # إعداد اللوغ
 logging.basicConfig(
@@ -9,7 +9,7 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-# قاموس ترجمة النشاط
+# ترجمة القطاعات
 sector_translation = {
     "technology": "تقنية",
     "healthcare": "الرعاية الصحية",
@@ -28,7 +28,7 @@ sector_translation = {
     "telecom": "الاتصالات",
 }
 
-# دالة الفلترة الشرعية
+# فلترة شرعية
 def filter_sharia_compliance(symbol):
     try:
         stock = yf.Ticker(symbol)
@@ -60,17 +60,35 @@ def filter_sharia_compliance(symbol):
 - {purification}
 - الملاحظة: {notes}
 
-قنوات JALWE العامة:
-- الأسهم: https://t.me/JalweTrader
-- العقود: https://t.me/jalweoption
-- التعليمية: https://t.me/JalweVip
+قناة JALWE العامة للأسهم:
+https://t.me/JalweTrader
+
+قناة JALWE العامة للعقود:
+https://t.me/jalweoption
+
+قناة JALWE التعليمية:
+https://t.me/JalweVip
+
+للاشتراك بالقنوات الخاصة:
+https://salla.sa/jalawe/category/AXlzxy
 """
         return response
 
     except Exception as e:
         return f"⚠️ تعذر التحقق من البيانات: {e}"
 
-# استقبال الرسائل من المستخدمين
+# رسالة الترحيب
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "مرحبًا بك في بوت فلترة الأسهم الشرعية.\n\n"
+        "أرسل رمز السهم (مثل AAPL أو TSLA) وسنخبرك عن حالته الشرعية حسب البيانات المالية.\n\n"
+        "قناة JALWE العامة للأسهم:\nhttps://t.me/JalweTrader\n"
+        "قناة JALWE العامة للعقود:\nhttps://t.me/jalweoption\n"
+        "قناة JALWE التعليمية:\nhttps://t.me/JalweVip\n"
+        "للاشتراك بالقنوات الخاصة:\nhttps://salla.sa/jalawe/category/AXlzxy"
+    )
+
+# رد على الرسائل
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     symbol = update.message.text.upper()
     if len(symbol) <= 6:
@@ -79,10 +97,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("أرسل رمز السهم فقط (مثال: AAPL، TSLA).")
 
-# توكن البوت
-TOKEN = "7643817024:AAGR3pno8R_IpQHtq1ioTwkPxHqY6uFxNJY"
-
 # تشغيل البوت
+TOKEN = "7643817024:AAGR3pno8R_IpQHtq1ioTwkPxHqY6uFxNJY"
 app = ApplicationBuilder().token(TOKEN).build()
+app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 app.run_polling()
