@@ -9,24 +9,24 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("أرسل رمز السهم (مثال: AAPL) لمعرفة الحالة الشرعية.")
 
-def check_sharia_compliance(symbol):
-    results = {}
-
+def check_yaqeen(symbol):
+    url = f"https://yaaqen.com/stocks/{symbol}"
     try:
-        r1 = requests.get(f'https://yaaqen.com/stocks/{symbol}')
-        results["Yaqeen"] = "مباح ✅" if "مباح" in r1.text else "غير محدث"
-        # استخراج نسبة التطهير من موقع يقين (مؤقتة، يمكن تطورها)
-        results["Yaqeen_purification"] = extract_yaqeen_purification(symbol)
-    except:
-        results["Yaqeen"] = "تعذر الاتصال"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
 
-    try:
-        r2 = requests.get(f'https://filterna.com/stocks/{symbol}')
-        results["Filterna"] = "مباح ✅" if "مباح" in r2.text else "غير محدث"
-        # لا توجد نسبة تطهير في فلترنا حالياً
-        results["Filterna_purification"] = ""
-    except:
-        results["Filterna"] = "تعذر الاتصال"
+        # افحص نص أو عناصر معينة داخل الصفحة تحدد حالة السهم
+        status_element = soup.find("div", class_="status")  # مثال على class
+        if status_element:
+            status_text = status_element.get_text(strip=True)
+            if "مباح" in status_text:
+                return "مباح ✅"
+            elif "غير مباح" in status_text:
+                return "غير مباح ❌"
+        return "غير محدث"
+    except Exception:
+        return "تعذر الاتصال"
 
     try:
         r3 = requests.get(f'https://chart-idea.com/filter?q={symbol}')
