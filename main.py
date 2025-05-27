@@ -36,7 +36,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     symbol = update.message.text.strip().upper()
     results = check_sharia_compliance(symbol)
 
-    response_text = f"رمز السهم: {symbol}
+    response_text = f"رمز السهم: {symbol}\n\n"
 
 "
     for source, result in results.items():
