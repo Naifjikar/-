@@ -40,7 +40,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     response_text = f"رمز السهم: {symbol}\n\n"
 
     for source, result in results.items():
-        response_text += f"- {source}: {result}
+        response_text += f"- {source}: {result}\n"
 "
 
     response_text += """قنوات JALWE:
