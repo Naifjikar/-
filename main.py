@@ -4,7 +4,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
 # بيانات الدخول
-TOKEN = "7643817024:AAEdh2RK0iDgAYQgA5qOq3VGvDa66GMFgQk"
+TOKEN = "7643817024:AAH7eCvHeLw6RsYI5s8fYFVoP8REdGlxGFM"
 API_KEY = "PDTlX9ib5N6laEnauklHAgoN8UGr12uh"
 
 logging.basicConfig(level=logging.INFO)
