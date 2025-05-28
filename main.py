@@ -3,10 +3,9 @@ import pandas as pd
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-# التوكن الخاص بك:
+# توكن البوت
 TOKEN = "7643817024:AAH7eCvHeLw6RsYI5s8fYFVoP8REdGlxGFM"
 
-# دالة الفلترة الشرعية
 def check_stock_sharia(symbol):
     try:
         symbol = symbol.upper()
@@ -14,13 +13,19 @@ def check_stock_sharia(symbol):
         balance = stock.balance_sheet
         info = stock.info
 
-        total_assets = balance.loc['Total Assets'][0]
-        short_debt = balance.loc.get('Short Long Term Debt', [0])[0]
-        long_debt = balance.loc.get('Long Term Debt', [0])[0]
+        if balance.empty:
+            return f"⚠️ لم يتم العثور على بيانات مالية للسهم ({symbol})"
+
+        total_assets = balance.loc['Total Assets'][0] if 'Total Assets' in balance.index else 0
+        short_debt = balance.loc['Short Long Term Debt'][0] if 'Short Long Term Debt' in balance.index else 0
+        long_debt = balance.loc['Long Term Debt'][0] if 'Long Term Debt' in balance.index else 0
         total_debt = short_debt + long_debt
 
-        cash = balance.loc.get('Cash', [0])[0]
-        investments = balance.loc.get('Short Term Investments', [0])[0]
+        cash = balance.loc['Cash'][0] if 'Cash' in balance.index else 0
+        investments = balance.loc['Short Term Investments'][0] if 'Short Term Investments' in balance.index else 0
+
+        if total_assets == 0:
+            return f"⚠️ تعذر حساب النسب لعدم توفر إجمالي الأصول."
 
         debt_ratio = total_debt / total_assets
         cash_ratio = (cash + investments) / total_assets
@@ -28,7 +33,6 @@ def check_stock_sharia(symbol):
         company_name = info.get("longName", symbol)
         sector = info.get("sector", "غير معروف")
 
-        # نتائج الفلترة:
         if debt_ratio > 0.33:
             return f"""❌ غير شرعي: نسبة الدين {round(debt_ratio*100, 2)}% تتجاوز 33%
 
@@ -55,8 +59,8 @@ https://salla.sa/jalawe/category/AXlzxy
 
 - الشركة: {company_name}
 - النشاط: {sector}
-- نسبة الدين: {round(debt_ratio*100,2)}%
-- نسبة النقد: {round(cash_ratio*100,2)}%
+- نسبة الدين: {round(debt_ratio*100, 2)}%
+- نسبة النقد: {round(cash_ratio*100, 2)}%
 
 قنوات JALWE العامة:
 📌 الأسهم: https://t.me/JalweTrader
