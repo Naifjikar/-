@@ -1,93 +1,93 @@
 import logging
-import yfinance as yf
+import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-# إعداد البوت - ضع التوكن الخاص بك هنا
+# التوكن الخاص بك
 TOKEN = "7643817024:AAEdh2RK0iDgAYQgA5qOq3VGvDa66GMFgQk"
+# API Key من FMP
+API_KEY = "PDTlX9ib5N6laEnauklHAgoN8UGr12uh"
+
 logging.basicConfig(level=logging.INFO)
 
-# ترجمة القطاعات
-sector_translation = {
-    "Technology": "تقنية",
-    "Healthcare": "الرعاية الصحية",
-    "Financial Services": "الخدمات المالية",
-    "Consumer Cyclical": "السلع الاستهلاكية الدورية",
-    "Communication Services": "الاتصالات",
-    "Energy": "الطاقة",
-    "Industrials": "الصناعات",
-    "Real Estate": "العقارات",
-    "Utilities": "الخدمات العامة",
-    "Materials": "المواد الأساسية",
-    "Consumer Defensive": "السلع الدفاعية",
-    "Basic Materials": "المواد الأساسية",
-    "Insurance": "التأمين",
-    "Banks": "البنوك",
-    "Telecom": "الاتصالات",
-}
-
-# دالة الفلترة عبر yfinance
-def check_sharia_yahoo(symbol):
+def filter_stock_yaqeen_style(symbol):
     try:
-        stock = yf.Ticker(symbol)
-        info = stock.info
+        symbol = symbol.upper()
 
-        sector_en = info.get("sector", "غير متوفر")
-        sector_ar = sector_translation.get(sector_en, sector_en)
-        company_name = info.get("shortName", symbol)
-        debt_to_equity = info.get("debtToEquity", None)
+        profile_url = f"https://financialmodelingprep.com/api/v3/profile/{symbol}?apikey={API_KEY}"
+        income_url = f"https://financialmodelingprep.com/api/v3/income-statement/{symbol}?limit=1&apikey={API_KEY}"
+        balance_url = f"https://financialmodelingprep.com/api/v3/balance-sheet-statement/{symbol}?limit=1&apikey={API_KEY}"
 
-        if sector_en == "غير متوفر" or debt_to_equity is None:
-            return "⚠️ تعذر الحصول على البيانات الكافية للسهم، تأكد من الرمز أو جرب لاحقًا."
+        profile = requests.get(profile_url).json()[0]
+        income = requests.get(income_url).json()[0]
+        balance = requests.get(balance_url).json()[0]
 
-        haram_keywords = ["bank", "insurance", "alcohol", "gambling", "tobacco", "loan"]
-        if any(haram in sector_en.lower() for haram in haram_keywords):
-            verdict = "❌ السهم غير شرعي (نشاط محرم)"
-            purification = "نسبة التطهير: 100%"
-        elif debt_to_equity > 0.7:
-            verdict = "❌ السهم غير شرعي (نسبة الدين مرتفعة)"
-            purification = "نسبة التطهير: 100%"
+        company_name = profile.get("companyName", symbol)
+        sector = profile.get("sector", "غير معروف")
+
+        total_assets = balance["totalAssets"]
+        total_liabilities = balance["totalLiabilities"]
+        cash = balance.get("cashAndCashEquivalents", 0)
+        investments = balance.get("shortTermInvestments", 0)
+        revenue = income.get("revenue", 0)
+        non_halal_income = 0  # تقدر تضيف تقدير لو لاحقاً صار عندك مصدر
+
+        debt_ratio = total_liabilities / total_assets
+        cash_ratio = (cash + investments) / total_assets
+        non_halal_ratio = non_halal_income / revenue if revenue else 0
+
+        if "bank" in sector.lower() or "insurance" in sector.lower():
+            verdict = "❌ غير شرعي: نشاط الشركة محرم"
+        elif debt_ratio > 0.33:
+            verdict = f"❌ غير شرعي: نسبة الدين {round(debt_ratio*100,2)}% تتجاوز 33%"
+        elif cash_ratio > 0.49:
+            verdict = f"❌ غير شرعي: النقدية {round(cash_ratio*100,2)}% تتجاوز 49%"
+        elif non_halal_ratio > 0.05:
+            verdict = f"❌ غير شرعي: إيرادات محرمة {round(non_halal_ratio*100,2)}% تتجاوز 5%"
         else:
-            verdict = "✅ السهم حلال (حسب بيانات Yahoo)"
-            purification = "نسبة التطهير التقديرية: أقل من 5%"
+            verdict = f"✅ السهم حلال (مطابق لضوابط يقين)"
 
-        message = f"""{verdict}
+        return f"""📊 نتيجة الفلترة الشرعية:
+
+{verdict}
+
 - الشركة: {company_name}
-- النشاط: {sector_ar}
-- نسبة الدين (تقريبية): {round(debt_to_equity * 100, 2)}%
-- {purification}
+- النشاط: {sector}
+- نسبة الدين: {round(debt_ratio*100,2)}%
+- نسبة النقد: {round(cash_ratio*100,2)}%
 
-قناة JALWE العامة للأسهم:
+قناة JALWE العامة للأسهم  :
 https://t.me/JalweTrader
-
-قناة JALWE العامة للعقود:
+قناة JALWE العامة للعقود :
 https://t.me/jalweoption
-
-قناة JALWE التعليمية:
+قناة JALWE التعليمية :
 https://t.me/JalweVip
-
-للاشتراك بالقنوات الخاصة:
-https://salla.sa/jalawe/category/AXlzxy"""
-        return message
+للاشتراك بالقنوات الخاصة :
+https://salla.sa/jalawe/category/AXlzxy
+"""
 
     except Exception as e:
-        return f"⚠️ حدث خطأ أثناء جلب البيانات من Yahoo Finance: {e}"
+        return f"⚠️ فشل في جلب بيانات السهم ({symbol}): {e}"
 
-# أمر البدء
+# أمر /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("أرسل رمز السهم (مثال: AAPL) لمعرفة حالته الشرعية (باستخدام Yahoo Finance فقط).")
+    await update.message.reply_text("أرسل رمز السهم (مثال: AAPL أو HUMA) وسأقوم بفلترته شرعيًا حسب معايير فلتر يقين.")
 
-# التعامل مع الرسائل
+# استقبال الرموز
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    symbol = update.message.text.upper()
-    if len(symbol) <= 6:
-        result = check_sharia_yahoo(symbol)
+    symbol = update.message.text.strip().upper()
+    if 1 <= len(symbol) <= 6:
+        result = filter_stock_yaqeen_style(symbol)
         await update.message.reply_text(result)
     else:
-        await update.message.reply_text("أرسل رمز السهم فقط (مثل AAPL أو TSLA).")
+        await update.message.reply_text("❗ أرسل رمز السهم فقط (مثال: AAPL أو TSLA)")
 
-# تشغيل البوت
-app = ApplicationBuilder().token(TOKEN).build()
-app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-app.run_polling()
+def main():
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    print("✅ البوت يعمل الآن...")
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
