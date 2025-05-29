@@ -3,8 +3,28 @@ import pandas as pd
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-# توكن البوت
 TOKEN = "7643817024:AAH7eCvHeLw6RsYI5s8fYFVoP8REdGlxGFM"
+
+# ترجمة النشاطات
+sector_translation = {
+    "Technology": "تقنية",
+    "Healthcare": "الرعاية الصحية",
+    "Financial Services": "خدمات مالية",
+    "Consumer Cyclical": "السلع الاستهلاكية",
+    "Communication Services": "اتصالات",
+    "Energy": "طاقة",
+    "Industrials": "صناعات",
+    "Real Estate": "عقارات",
+    "Utilities": "خدمات عامة",
+    "Materials": "مواد أساسية",
+    "Consumer Defensive": "سلع استهلاكية دفاعية",
+    "Basic Materials": "مواد أولية",
+    "Financial": "خدمات مالية",
+    "": "غير مذكور"
+}
+
+# أنشطة محرمة
+banned_keywords = ["Alcohol", "Tobacco", "Gambling", "Gaming", "Adult", "Weapon", "Porn", "Cannabis", "Casino", "Brewery"]
 
 def check_stock_sharia(symbol):
     try:
@@ -31,7 +51,24 @@ def check_stock_sharia(symbol):
         cash_ratio = (cash + investments) / total_assets
 
         company_name = info.get("longName", symbol)
-        sector = info.get("sector", "غير معروف")
+        sector_en = info.get("sector", "غير معروف")
+        industry = info.get("industry", "")
+
+        # ترجمة القطاع
+        sector_ar = sector_translation.get(sector_en, sector_en)
+
+        # فلترة النشاط
+        industry_lower = industry.lower()
+        if any(bad_word.lower() in industry_lower for bad_word in banned_keywords):
+            return f"""❌ غير شرعي: النشاط ({industry}) يحتوي على أنشطة محرّمة
+
+قنوات JALWE العامة:
+📌 الأسهم: https://t.me/JalweTrader
+📌 العقود: https://t.me/jalweoption
+📌 التعليمية: https://t.me/JalweVip
+🔒 الاشتراك بالقنوات الخاصة:
+https://salla.sa/jalawe/category/AXlzxy
+"""
 
         if debt_ratio > 0.33:
             return f"""❌ غير شرعي: نسبة الدين {round(debt_ratio*100, 2)}% تتجاوز 33%
@@ -55,12 +92,12 @@ https://salla.sa/jalawe/category/AXlzxy
 https://salla.sa/jalawe/category/AXlzxy
 """
 
-        return f"""✅ السهم حلال (مطابق لضوابط فلتر يقين)
+        return f"""✅ السهم حلال (مطابق للضوابط الشرعية)
 
 - الشركة: {company_name}
-- النشاط: {sector}
+- النشاط: {sector_ar} ({industry})
 - نسبة الدين: {round(debt_ratio*100, 2)}%
-- نسبة النقد: {round(cash_ratio*100, 2)}%
+- نسبة النقد (نسبة التطهير): {round(cash_ratio*100, 2)}%
 
 قنوات JALWE العامة:
 📌 الأسهم: https://t.me/JalweTrader
