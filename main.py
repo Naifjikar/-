@@ -3,7 +3,7 @@ import pandas as pd
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-TOKEN = "7643817024:AAH7eCvHeLw6RsYI5s8fYFVoP8REdGlxGFM"
+TOKEN = "7643817024:AAH8baB7d0QllfO4PcPpbg6lTR7VdEc7r7o"
 
 # ترجمة النشاطات
 sector_translation = {
