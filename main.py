@@ -1,5 +1,6 @@
 import yfinance as yf
 import pandas as pd
+import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
@@ -26,6 +27,29 @@ sector_translation = {
 # أنشطة محرمة
 banned_keywords = ["Alcohol", "Tobacco", "Gambling", "Gaming", "Adult", "Weapon", "Porn", "Cannabis", "Casino", "Brewery"]
 
+# دالة استخراج نسبة التطهير من FMP
+def get_purification_ratio(symbol):
+    try:
+        url = f"https://financialmodelingprep.com/api/v3/balance-sheet-statement/{symbol.upper()}?limit=1&apikey=PDTlX9ib5N6laEnauklHAgoN8UGr12uh"
+        response = requests.get(url)
+        data = response.json()
+
+        if not data or "cashAndShortTermInvestments" not in data[0] or "totalAssets" not in data[0]:
+            return None
+
+        cash = data[0]['cashAndShortTermInvestments']
+        total_assets = data[0]['totalAssets']
+        if total_assets == 0:
+            return None
+
+        purification_ratio = round((cash / total_assets) * 100, 2)
+        return purification_ratio
+
+    except Exception as e:
+        print(f"Error fetching purification ratio: {e}")
+        return None
+
+# الفلترة الشرعية
 def check_stock_sharia(symbol):
     try:
         symbol = symbol.upper()
@@ -92,12 +116,16 @@ https://salla.sa/jalawe/category/AXlzxy
 https://salla.sa/jalawe/category/AXlzxy
 """
 
+        # حساب نسبة التطهير من FMP
+        purification_ratio = get_purification_ratio(symbol)
+        purification_text = f"{purification_ratio}%" if purification_ratio is not None else "غير متوفرة"
+
         return f"""✅ السهم حلال (مطابق للضوابط الشرعية)
 
 - الشركة: {company_name}
 - النشاط: {sector_ar} ({industry})
 - نسبة الدين: {round(debt_ratio*100, 2)}%
-- نسبة النقد (نسبة التطهير): {round(cash_ratio*100, 2)}%
+- نسبة النقد (نسبة التطهير): {purification_text}
 
 قنوات JALWE العامة:
 📌 الأسهم: https://t.me/JalweTrader
