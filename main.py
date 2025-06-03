@@ -4,7 +4,7 @@ import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-TOKEN = "7643817024:AAH8baB7d0QllfO4PcPpbg6lTR7VdEc7r7o"
+TOKEN = "7643817024:AAHuFjmUvziYHLr3G8M5xoqmlbOGBN5PGOw"
 
 # ترجمة النشاطات
 sector_translation = {
